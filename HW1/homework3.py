@@ -53,6 +53,32 @@ def tuple_to_string(my_tuple, cost, put_lf=False):
     return output
 
 
+class CustomPriorityQueue:
+    def __init__(self):
+        self.priority_queue = {}
+
+    def size(self):
+        return len(self.priority_queue)
+
+    def push(self, coordinates_tuple, cost):
+        self.priority_queue[coordinates_tuple] = cost
+
+    def pop(self):
+        min_index = min(self.priority_queue, key=self.priority_queue.get)
+        min_grid_point = self.priority_queue[min_index]
+        del self.priority_queue[min_index]
+        return [min_index, min_grid_point]
+
+    def exists(self, coordinates_tuple):
+        return coordinates_tuple in self.priority_queue.keys()
+
+    def get(self, coordinates_tuple):
+        return self.priority_queue.get(coordinates_tuple)
+
+    def update(self, coordinates_tuple, new_cost):
+        self.priority_queue[coordinates_tuple] = new_cost
+
+
 input_file_list = read_input_file()
 algorithm = input_file_list[0]
 sizes = [int(item) for item in input_file_list[1].split()]
@@ -68,21 +94,20 @@ for i in range(n):
     node_coordinates = (graph_node[0], graph_node[1], graph_node[2])
     graph[node_coordinates] = graph_node[3:]
 
-
 if algorithm == 'BFS':
     visited = {}
-    distance_to_source = {}
+    node_cost = {}
     father_node = {}
 
     for node in graph.keys():
         visited[node] = False
-        distance_to_source[node] = inf
+        node_cost[node] = inf
         father_node[node] = -1
 
     queue = Queue(maxsize=0)
 
     visited[source_coordinates] = True
-    distance_to_source[source_coordinates] = 0
+    node_cost[source_coordinates] = 0
     father_node[source_coordinates] = -1
 
     queue.put(source_coordinates)
@@ -93,7 +118,7 @@ if algorithm == 'BFS':
                          front_node[2] + MAPPINGS[action][2])
             if next_node in graph and visited[next_node] is False:
                 visited[next_node] = True
-                distance_to_source[next_node] = distance_to_source[front_node] + 1
+                node_cost[next_node] = node_cost[front_node] + 1
                 father_node[next_node] = front_node
                 queue.put(next_node)
 
@@ -115,6 +140,65 @@ if algorithm == 'BFS':
 
     write_output_file(fail=True)
 
-# elif algorithm == 'UCS':
+elif algorithm == 'UCS':
+    visited = {}
+    node_cost = {}
+    father_node = {}
+
+    for node in graph.keys():
+        visited[node] = False
+        node_cost[node] = inf
+        father_node[node] = -1
+
+    priority_queue = CustomPriorityQueue()
+
+    visited[source_coordinates] = True
+    node_cost[source_coordinates] = 0
+    father_node[source_coordinates] = -1
+
+    priority_queue.push(source_coordinates, 0)
+    while priority_queue.size() != 0:
+        [top_node, top_node_cost] = priority_queue.pop()
+
+        if top_node == dest_coordinates:
+            iterate_answer = dest_coordinates
+            answer = [tuple_to_string(iterate_answer, node_cost[iterate_answer], False)]
+            while father_node[iterate_answer] != -1:
+                if father_node[iterate_answer] == source_coordinates:
+                    answer.append(tuple_to_string(father_node[iterate_answer], 0, True))
+                else:
+                    answer.append(tuple_to_string(father_node[iterate_answer], node_cost[iterate_answer], True))
+                iterate_answer = father_node[iterate_answer]
+
+            answer.reverse()
+
+            answer_list = [f'{top_node_cost}\n', f'{len(answer)}\n'] + answer
+            write_output_file(answer_list, fail=False)
+            exit()
+        else:
+            visited[top_node] = True
+            for action in graph[top_node]:
+                next_node = (top_node[0] + MAPPINGS[action][0], top_node[1] + MAPPINGS[action][1],
+                             top_node[2] + MAPPINGS[action][2])
+                if next_node in graph and (visited[next_node] is False):
+                    if action <= 6:
+                        priority_queue.push(next_node, top_node_cost + 10)
+                        node_cost[next_node] = 10
+                    else:
+                        priority_queue.push(next_node, top_node_cost + 14)
+                        node_cost[next_node] = 14
+                    father_node[next_node] = top_node
+                elif next_node in graph and priority_queue.exists(next_node):
+                    if action <= 6:
+                        if node_cost[next_node] > top_node_cost + 10:
+                            priority_queue.update(next_node, top_node_cost + 10)
+                            node_cost[next_node] = 10
+                            father_node[next_node] = top_node
+                    else:
+                        if node_cost[next_node] > top_node_cost + 14:
+                            priority_queue.update(next_node, top_node_cost + 14)
+                            node_cost[next_node] = 14
+                            father_node[next_node] = top_node
+
+    write_output_file(fail=True)
 # elif algorithm == 'A*':
-# write_output_file()
