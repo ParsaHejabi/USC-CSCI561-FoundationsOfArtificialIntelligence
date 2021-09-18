@@ -180,7 +180,7 @@ elif algorithm == 'UCS':
             for action in graph[top_node]:
                 next_node = (top_node[0] + MAPPINGS[action][0], top_node[1] + MAPPINGS[action][1],
                              top_node[2] + MAPPINGS[action][2])
-                if next_node in graph and (visited[next_node] is False):
+                if next_node in graph and not (visited[next_node] is True or priority_queue.exists(next_node)):
                     if action <= 6:
                         priority_queue.push(next_node, top_node_cost + 10)
                         node_cost[next_node] = 10
