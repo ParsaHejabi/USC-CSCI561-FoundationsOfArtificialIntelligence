@@ -167,7 +167,7 @@ elif algorithm == 'UCS':
                 if father_node[iterate_answer] == source_coordinates:
                     answer.append(tuple_to_string(father_node[iterate_answer], 0, True))
                 else:
-                    answer.append(tuple_to_string(father_node[iterate_answer], node_cost[iterate_answer], True))
+                    answer.append(tuple_to_string(father_node[iterate_answer], node_cost[father_node[iterate_answer]], True))
                 iterate_answer = father_node[iterate_answer]
 
             answer.reverse()
