@@ -1,3 +1,4 @@
+import math
 from math import inf
 from queue import Queue
 
@@ -51,6 +52,11 @@ def tuple_to_string(my_tuple, cost, put_lf=False):
         output += '\n'
 
     return output
+
+
+def euclidean_distance(first_tuple, second_tuple):
+    return math.sqrt(math.pow(first_tuple[0] - second_tuple[0], 2) + math.pow(first_tuple[1] - second_tuple[1], 2)
+                     + math.pow(first_tuple[2] - second_tuple[2], 2))
 
 
 class CustomPriorityQueue:
@@ -167,7 +173,8 @@ elif algorithm == 'UCS':
                 if father_node[iterate_answer] == source_coordinates:
                     answer.append(tuple_to_string(father_node[iterate_answer], 0, True))
                 else:
-                    answer.append(tuple_to_string(father_node[iterate_answer], node_cost[father_node[iterate_answer]], True))
+                    answer.append(
+                        tuple_to_string(father_node[iterate_answer], node_cost[father_node[iterate_answer]], True))
                 iterate_answer = father_node[iterate_answer]
 
             answer.reverse()
@@ -190,15 +197,85 @@ elif algorithm == 'UCS':
                     father_node[next_node] = top_node
                 elif next_node in graph and priority_queue.exists(next_node):
                     if action <= 6:
-                        if node_cost[next_node] > top_node_cost + 10:
+                        if priority_queue.get(next_node) > top_node_cost + 10:
                             priority_queue.update(next_node, top_node_cost + 10)
                             node_cost[next_node] = 10
                             father_node[next_node] = top_node
                     else:
-                        if node_cost[next_node] > top_node_cost + 14:
+                        if priority_queue.get(next_node) > top_node_cost + 14:
                             priority_queue.update(next_node, top_node_cost + 14)
                             node_cost[next_node] = 14
                             father_node[next_node] = top_node
 
     write_output_file(fail=True)
-# elif algorithm == 'A*':
+
+elif algorithm == 'A*':
+    visited = {}
+    node_cost = {}
+    father_node = {}
+
+    for node in graph.keys():
+        visited[node] = False
+        node_cost[node] = inf
+        father_node[node] = -1
+
+    priority_queue = CustomPriorityQueue()
+
+    visited[source_coordinates] = True
+    node_cost[source_coordinates] = 0
+    father_node[source_coordinates] = -1
+
+    priority_queue.push(source_coordinates, 0 + euclidean_distance(source_coordinates, dest_coordinates))
+    while priority_queue.size() != 0:
+        [top_node, top_node_cost] = priority_queue.pop()
+
+        if top_node == dest_coordinates:
+            iterate_answer = dest_coordinates
+            answer = [tuple_to_string(iterate_answer, node_cost[iterate_answer], False)]
+            total_cost = node_cost[iterate_answer]
+            while father_node[iterate_answer] != -1:
+                if father_node[iterate_answer] == source_coordinates:
+                    answer.append(tuple_to_string(father_node[iterate_answer], 0, True))
+                else:
+                    answer.append(
+                        tuple_to_string(father_node[iterate_answer], node_cost[father_node[iterate_answer]], True))
+                    total_cost += node_cost[father_node[iterate_answer]]
+                iterate_answer = father_node[iterate_answer]
+
+            answer.reverse()
+
+            answer_list = [f'{total_cost}\n', f'{len(answer)}\n'] + answer
+            write_output_file(answer_list, fail=False)
+            exit()
+        else:
+            visited[top_node] = True
+            for action in graph[top_node]:
+                next_node = (top_node[0] + MAPPINGS[action][0], top_node[1] + MAPPINGS[action][1],
+                             top_node[2] + MAPPINGS[action][2])
+                if next_node in graph and not (visited[next_node] is True or priority_queue.exists(next_node)):
+                    if action <= 6:
+                        priority_queue.push(next_node, top_node_cost + 10 + euclidean_distance(next_node,
+                                                                                               dest_coordinates))
+                        node_cost[next_node] = 10
+                    else:
+                        priority_queue.push(next_node, top_node_cost + 14 + euclidean_distance(next_node,
+                                                                                               dest_coordinates))
+                        node_cost[next_node] = 14
+                    father_node[next_node] = top_node
+                elif next_node in graph and priority_queue.exists(next_node):
+                    if action <= 6:
+                        if priority_queue.get(next_node) > top_node_cost + 10 + euclidean_distance(next_node,
+                                                                                                   dest_coordinates):
+                            priority_queue.update(next_node, top_node_cost + 10 + euclidean_distance(next_node,
+                                                                                                     dest_coordinates))
+                            node_cost[next_node] = 10
+                            father_node[next_node] = top_node
+                    else:
+                        if priority_queue.get(next_node) > top_node_cost + 14 + euclidean_distance(next_node,
+                                                                                                   dest_coordinates):
+                            priority_queue.update(next_node, top_node_cost + 14 + euclidean_distance(next_node,
+                                                                                                     dest_coordinates))
+                            node_cost[next_node] = 14
+                            father_node[next_node] = top_node
+
+    write_output_file(fail=True)
