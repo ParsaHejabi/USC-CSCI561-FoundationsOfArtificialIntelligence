@@ -112,24 +112,22 @@ if algorithm == 'BFS':
 
     queue = Queue(maxsize=0)
 
-    visited[source_coordinates] = True
     node_cost[source_coordinates] = 0
     father_node[source_coordinates] = -1
 
     queue.put(source_coordinates)
     while not queue.empty():
         front_node = queue.get()
+        visited[front_node] = True
         for action in graph[front_node]:
             next_node = (front_node[0] + MAPPINGS[action][0], front_node[1] + MAPPINGS[action][1],
                          front_node[2] + MAPPINGS[action][2])
-            if next_node in graph and visited[next_node] is False:
-                visited[next_node] = True
+            if next_node in graph and not visited[next_node] is True and next_node not in queue.queue:
                 node_cost[next_node] = node_cost[front_node] + 1
                 father_node[next_node] = front_node
-                queue.put(next_node)
 
                 if next_node == dest_coordinates:
-                    iterate_answer = dest_coordinates
+                    iterate_answer = next_node
                     answer = [tuple_to_string(iterate_answer, 1, False)]
                     while father_node[iterate_answer] != -1:
                         if father_node[iterate_answer] == source_coordinates:
@@ -143,6 +141,8 @@ if algorithm == 'BFS':
                     answer_list = [f'{len(answer) - 1}\n', f'{len(answer)}\n'] + answer
                     write_output_file(answer_list, fail=False)
                     exit()
+
+                queue.put(next_node)
 
     write_output_file(fail=True)
 
@@ -158,7 +158,6 @@ elif algorithm == 'UCS':
 
     priority_queue = CustomPriorityQueue()
 
-    visited[source_coordinates] = True
     node_cost[source_coordinates] = 0
     father_node[source_coordinates] = -1
 
@@ -221,7 +220,6 @@ elif algorithm == 'A*':
 
     priority_queue = CustomPriorityQueue()
 
-    visited[source_coordinates] = True
     node_cost[source_coordinates] = 0
     father_node[source_coordinates] = -1
 
