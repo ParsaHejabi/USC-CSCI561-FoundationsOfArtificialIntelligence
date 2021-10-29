@@ -15,16 +15,105 @@ Y_CHANGES = [0, 1, 0, -1]
 class MyPlayer:
     def __init__(self, side, previous_game_state, current_game_state):
         self.side = side
-        self.opponent_side = WHITE if self.side == BLACK else BLACK
+        self.opponent_side = self.get_opponent_side(self.side)
         self.previous_game_state = previous_game_state
         self.current_game_state = current_game_state
 
-    def find_valid_moves(self):
+    def alpha_beta_search(self, search_depth, branching_factor):
+        max_move, max_move_value = self.max_value(self.current_game_state, self.side, search_depth, 0, branching_factor,
+                                                  -np.inf, np.inf, None)
+        # DEBUG
+        # print(max_move, max_move_value)
+        write_output(max_move)
+
+    def max_value(self, game_state, side, search_depth, current_depth, branching_factor, alpha, beta, valid_move):
+        if search_depth == current_depth:
+            return valid_move, self.evaluate_game_state(game_state, side)
+        max_move_value = -np.inf
+        max_move = None
+        valid_moves = self.find_valid_moves(game_state, side)
+        for valid_move in valid_moves[:branching_factor]:
+            # Create new game state
+            opponent_side = self.get_opponent_side(side)
+            new_game_state = self.move(game_state, side, valid_move)
+            min_move, min_move_value = self.min_value(new_game_state, opponent_side, search_depth, current_depth + 1,
+                                                      branching_factor, alpha, beta, valid_move)
+            if max_move_value < min_move_value:
+                max_move_value = min_move_value
+                max_move = min_move
+            if max_move_value >= beta:
+                return max_move, max_move_value
+            alpha = max(alpha, max_move_value)
+        return max_move, max_move_value
+
+    def min_value(self, game_state, side, search_depth, current_depth, branching_factor, alpha, beta, valid_move):
+        if search_depth == current_depth:
+            return valid_move, self.evaluate_game_state(game_state, side)
+        min_move_value = np.inf
+        min_move = None
+        valid_moves = self.find_valid_moves(game_state, side)
+        for valid_move in valid_moves[:branching_factor]:
+            # Create new game state
+            opponent_side = self.get_opponent_side(side)
+            new_game_state = self.move(game_state, side, valid_move)
+            max_move, max_move_value = self.max_value(new_game_state, opponent_side, search_depth, current_depth + 1,
+                                                      branching_factor, alpha, beta, valid_move)
+            if max_move_value < min_move_value:
+                min_move_value = max_move_value
+                min_move = max_move
+            if min_move_value <= alpha:
+                return min_move, min_move_value
+            beta = min(beta, min_move_value)
+        return min_move, min_move_value
+
+    def evaluate_game_state(self, game_state, side):
+        # Define heuristic here
+        # Simple one for now: count the valid moves for that side
+        return len(self.find_valid_moves(game_state, side))
+
+    def move(self, game_state, side, move):
+        new_game_state = copy.deepcopy(game_state)
+        # We know that the move which is going to be done is definitely valid for this side!
+        # We checked for liberty and KO before! So we can do the move!
+        new_game_state[move[0]][move[1]] = side
+        # Now we check if we have to delete opponents group or not
+        for index in range(len(X_CHANGES)):
+            new_i = move[0] + X_CHANGES[index]
+            new_j = move[1] + Y_CHANGES[index]
+            if 0 <= new_i < BOARD_SIZE and 0 <= new_j < BOARD_SIZE:
+                opponent_side = self.get_opponent_side(side)
+                if new_game_state[new_i][new_j] == opponent_side:
+                    # DFS!
+                    stack = [(new_i, new_j)]
+                    visited = set()
+                    opponent_group_should_be_deleted = True
+                    while stack:
+                        top_node = stack.pop()
+                        visited.add(top_node)
+                        for index in range(len(X_CHANGES)):
+                            new_new_i = top_node[0] + X_CHANGES[index]
+                            new_new_j = top_node[1] + Y_CHANGES[index]
+                            if 0 <= new_new_i < BOARD_SIZE and 0 <= new_new_j < BOARD_SIZE:
+                                if (new_new_i, new_new_j) in visited:
+                                    continue
+                                elif new_game_state[new_new_i][new_new_j] == UNOCCUPIED:
+                                    opponent_group_should_be_deleted = False
+                                    break
+                                elif new_game_state[new_new_i][new_new_j] == opponent_side and\
+                                        (new_new_i, new_new_j) not in visited:
+                                    stack.append((new_new_i, new_new_j))
+
+                    if opponent_group_should_be_deleted:
+                        for stone in visited:
+                            new_game_state[stone[0]][stone[1]] = UNOCCUPIED
+        return new_game_state
+
+    def find_valid_moves(self, game_state, side):
         valid_moves = []
         for i in range(BOARD_SIZE):
             for j in range(BOARD_SIZE):
-                if self.current_game_state[i][j] == UNOCCUPIED:
-                    if self.check_for_liberty(self.current_game_state, i, j, self.side):
+                if game_state[i][j] == UNOCCUPIED:
+                    if self.check_for_liberty(game_state, i, j, side):
                         # Check for 'KO' rule before validating this move!
                         if not self.check_for_ko(i, j):
                             valid_moves.append((i, j))
@@ -34,13 +123,14 @@ class MyPlayer:
                             new_i = i + X_CHANGES[index]
                             new_j = j + Y_CHANGES[index]
                             if 0 <= new_i < BOARD_SIZE and 0 <= new_j < BOARD_SIZE:
-                                if self.current_game_state[new_i][new_j] == self.opponent_side:
+                                opponent_side = self.get_opponent_side(side)
+                                if game_state[new_i][new_j] == opponent_side:
                                     # If there is a group of opponent_side that has no liberty with our move then we
                                     # can capture them and do this move!
-                                    new_game_state = copy.deepcopy(self.current_game_state)
-                                    new_game_state[i][j] = self.side
+                                    new_game_state = copy.deepcopy(game_state)
+                                    new_game_state[i][j] = side
                                     if not self.check_for_liberty(new_game_state, new_i, new_j,
-                                                                  self.opponent_side):
+                                                                  opponent_side):
                                         # Check for 'KO' rule before validating this move!
                                         if not self.check_for_ko(i, j):
                                             valid_moves.append((i, j))
@@ -69,6 +159,9 @@ class MyPlayer:
                         stack.append((new_i, new_j))
         return False
 
+    def get_opponent_side(self, side):
+        return WHITE if side == BLACK else BLACK
+
     def check_for_ko(self, i, j):
         if self.previous_game_state[i][j] != self.side:
             return False
@@ -94,8 +187,7 @@ class MyPlayer:
                 if self.current_game_state[i][j] != self.previous_game_state[i][j]\
                         and self.current_game_state[i][j] != UNOCCUPIED:
                     # Just a double check that the difference is a stone that belongs to the opponent!
-                    # TODO delete this
-                    assert self.current_game_state[i][j] == self.opponent_side, "Houston we've got a problem!"
+                    # assert self.current_game_state[i][j] == self.opponent_side, "Houston we've got a problem!"
                     return i, j
 
     def delete_group(self, game_state, i, j, side):
@@ -132,13 +224,12 @@ def read_input(input_file_name = INPUT_FILE_NAME):
         return side, previous_game_state, current_game_state
 
 
-def write_output():
+def write_output(next_move):
     with open(OUTPUT_FILE_NAME, 'w') as output_file:
-        output_file.write('2,3')
+        output_file.write(f'{next_move[0]},{next_move[1]}')
 
 
 if __name__ == '__main__':
     side, previous_game_state, current_game_state = read_input()
     my_player = MyPlayer(side, previous_game_state, current_game_state)
-    print(my_player.find_valid_moves())
-    # write_output()
+    my_player.alpha_beta_search(2, 10)
