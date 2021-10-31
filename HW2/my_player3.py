@@ -140,9 +140,9 @@ class MyPlayer:
 
         score = min(max((len(side_liberty) - len(opponent_liberty)), -4), 4) + (
                 -4 * self.calculate_euler_number(game_state, side)) + (
-                        5 * (side_count - opponent_count)) - (2 * side_edge_count * (center_unoccupied_count / 9))
+                        5 * (side_count - opponent_count)) - (9 * side_edge_count * (center_unoccupied_count / 9))
         if self.side == WHITE:
-            score += 2 * KOMI
+            score += KOMI
 
         # DEBUG
         # print(game_state)
