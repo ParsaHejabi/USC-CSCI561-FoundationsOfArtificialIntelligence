@@ -103,27 +103,44 @@ class MyPlayer:
                         new_j = j + Y_CHANGES[index]
                         if 0 <= new_i < BOARD_SIZE and 0 <= new_j < BOARD_SIZE:
                             if game_state[new_i][new_j] == side:
-                                side_liberty.add((new_i, new_j))
+                                side_liberty.add((i, j))
                             elif game_state[new_i][new_j] == opponent_side:
-                                opponent_liberty.add((new_i, new_j))
+                                opponent_liberty.add((i, j))
 
         side_edge_count = 0
         opponent_side_edge_count = 0
         for j in range(BOARD_SIZE):
             if game_state[0][j] == side or game_state[BOARD_SIZE - 1][j] == side:
                 side_edge_count += 1
-            if game_state[j][0] == side or game_state[j][BOARD_SIZE - 1] == side:
-                side_edge_count += 1
             if game_state[0][j] == opponent_side or game_state[BOARD_SIZE - 1][j] == opponent_side:
                 opponent_side_edge_count += 1
+
+        for j in range(1, BOARD_SIZE - 1):
+            if game_state[j][0] == side or game_state[j][BOARD_SIZE - 1] == side:
+                side_edge_count += 1
             if game_state[j][0] == opponent_side or game_state[j][BOARD_SIZE - 1] == opponent_side:
                 opponent_side_edge_count += 1
 
+        center_unoccupied_count = 9
+        for i in range(1, BOARD_SIZE - 1):
+            for j in range(1, BOARD_SIZE - 1):
+                if game_state[i][j] != UNOCCUPIED:
+                    center_unoccupied_count -= 1
+
         score = min(max((len(side_liberty) - len(opponent_liberty)), -4), 4) + (
                 -4 * self.calculate_euler_number(game_state, side)) + (
-                            5 * (side_count - opponent_count)) - side_edge_count
+                        5 * (side_count - opponent_count)) - (2 * side_edge_count * (center_unoccupied_count / 9))
         if self.side == WHITE:
             score += 2 * KOMI
+
+        # DEBUG
+        # print(game_state)
+        # print(f'side: {side}')
+        # print(f'score: {score}')
+        # print(f'f1: {min(max((len(side_liberty) - len(opponent_liberty)), -4), 4)}')
+        # print(f'f2: {(-4 * self.calculate_euler_number(game_state, side))}')
+        # print(f'f3: {5 * (side_count - opponent_count)}')
+        # print(f'f4: {side_edge_count}')
         return score
 
     def move(self, game_state, side, move):
@@ -363,6 +380,6 @@ def write_output(next_move):
 
 
 if __name__ == '__main__':
-    side, previous_game_state, current_game_state = read_input()
+    side, previous_game_state, current_game_state = read_input('./weird_tests/2.txt')
     my_player = MyPlayer(side, previous_game_state, current_game_state)
-    my_player.alpha_beta_search(6, 20)
+    my_player.alpha_beta_search(4, 20)

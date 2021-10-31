@@ -1,7 +1,9 @@
 import unittest
+
+import numpy as np
+
 from my_player3 import MyPlayer
 from my_player3 import read_input
-import numpy as np
 
 BOARD_SIZE = 5
 UNOCCUPIED = 0
@@ -163,3 +165,13 @@ class TestMyPlayer(unittest.TestCase):
             [0, 0, 0, 0, 0],
             [0, 0, 0, 0, 0]
         ])))
+
+    def test_evaluate_game_state(self):
+        side, previous_game_state, current_game_state = read_input('tests/test_evaluate_game_state1.txt')
+        my_player = MyPlayer(side, previous_game_state, current_game_state)
+        self.assertGreater(my_player.evaluate_game_state(my_player.current_game_state, side),
+                           my_player.evaluate_game_state(my_player.previous_game_state, side))
+        self.assertGreater(my_player.evaluate_game_state(my_player.current_game_state, side),
+                           my_player.evaluate_game_state(np.array([[0, 1, 1, 1, 0], [2, 1, 0, 1, 2],
+                                                                   [2, 1, 1, 1, 1], [1, 1, 2, 2, 2],
+                                                                   [0, 2, 2, 2, 2]]), side))
