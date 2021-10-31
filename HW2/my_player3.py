@@ -1,5 +1,6 @@
-import numpy as np
 import copy
+
+import numpy as np
 
 INPUT_FILE_NAME = 'input.txt'
 OUTPUT_FILE_NAME = 'output.txt'
@@ -21,14 +22,14 @@ class MyPlayer:
 
     def alpha_beta_search(self, search_depth, branching_factor):
         max_move, max_move_value = self.max_value(self.current_game_state, self.side, search_depth, 0, branching_factor,
-                                                  -np.inf, np.inf, None)
+                                                  -np.inf, np.inf)
         # DEBUG
         # print(max_move, max_move_value)
         write_output(max_move)
 
-    def max_value(self, game_state, side, search_depth, current_depth, branching_factor, alpha, beta, valid_move):
+    def max_value(self, game_state, side, search_depth, current_depth, branching_factor, alpha, beta):
         if search_depth == current_depth:
-            return valid_move, self.evaluate_game_state(game_state, side)
+            return self.evaluate_game_state(game_state, side)
         max_move_value = -np.inf
         max_move = None
         valid_moves = self.find_valid_moves(game_state, side)
@@ -36,40 +37,80 @@ class MyPlayer:
             # Create new game state
             opponent_side = self.get_opponent_side(side)
             new_game_state = self.move(game_state, side, valid_move)
-            min_move, min_move_value = self.min_value(new_game_state, opponent_side, search_depth, current_depth + 1,
-                                                      branching_factor, alpha, beta, valid_move)
+            min_move_value = self.min_value(new_game_state, opponent_side, search_depth, current_depth + 1,
+                                            branching_factor, alpha, beta)
             if max_move_value < min_move_value:
                 max_move_value = min_move_value
-                max_move = min_move
+                max_move = valid_move
             if max_move_value >= beta:
-                return max_move, max_move_value
+                if current_depth == 0:
+                    return max_move, max_move_value
+                else:
+                    return max_move_value
             alpha = max(alpha, max_move_value)
-        return max_move, max_move_value
+        if current_depth == 0:
+            return max_move, max_move_value
+        else:
+            return max_move_value
 
-    def min_value(self, game_state, side, search_depth, current_depth, branching_factor, alpha, beta, valid_move):
+    def min_value(self, game_state, side, search_depth, current_depth, branching_factor, alpha, beta):
         if search_depth == current_depth:
-            return valid_move, self.evaluate_game_state(game_state, side)
+            return self.evaluate_game_state(game_state, side)
         min_move_value = np.inf
-        min_move = None
         valid_moves = self.find_valid_moves(game_state, side)
         for valid_move in valid_moves[:branching_factor]:
             # Create new game state
             opponent_side = self.get_opponent_side(side)
             new_game_state = self.move(game_state, side, valid_move)
-            max_move, max_move_value = self.max_value(new_game_state, opponent_side, search_depth, current_depth + 1,
-                                                      branching_factor, alpha, beta, valid_move)
+            max_move_value = self.max_value(new_game_state, opponent_side, search_depth, current_depth + 1,
+                                            branching_factor, alpha, beta)
             if max_move_value < min_move_value:
                 min_move_value = max_move_value
-                min_move = max_move
             if min_move_value <= alpha:
-                return min_move, min_move_value
+                return min_move_value
             beta = min(beta, min_move_value)
-        return min_move, min_move_value
+        return min_move_value
 
     def evaluate_game_state(self, game_state, side):
         # Define heuristic here
-        # Simple one for now: count the valid moves for that side
-        return len(self.find_valid_moves(game_state, side))
+        # Count number of sides stones - opponent stones
+        opponent_side = self.get_opponent_side(side)
+        side_count = 0
+        side_liberty = set()
+        opponent_count = 0
+        opponent_liberty = set()
+        for i in range(BOARD_SIZE):
+            for j in range(BOARD_SIZE):
+                if game_state[i][j] == side:
+                    side_count += 1
+                elif game_state[i][j] == opponent_side:
+                    opponent_count += 1
+                # This point should be UNOCCUPIED!
+                else:
+                    for index in range(len(X_CHANGES)):
+                        new_i = i + X_CHANGES[index]
+                        new_j = j + Y_CHANGES[index]
+                        if 0 <= new_i < BOARD_SIZE and 0 <= new_j < BOARD_SIZE:
+                            if game_state[new_i][new_j] == side:
+                                side_liberty.add((new_i, new_j))
+                            elif game_state[new_i][new_j] == opponent_side:
+                                opponent_liberty.add((new_i, new_j))
+
+        side_edge_count = 0
+        opponent_side_edge_count = 0
+        for j in range(BOARD_SIZE):
+            if game_state[0][j] == side or game_state[BOARD_SIZE - 1][j] == side:
+                side_edge_count += 1
+            if game_state[j][0] == side or game_state[j][BOARD_SIZE - 1] == side:
+                side_edge_count += 1
+            if game_state[0][j] == opponent_side or game_state[BOARD_SIZE - 1][j] == opponent_side:
+                opponent_side_edge_count += 1
+            if game_state[j][0] == opponent_side or game_state[j][BOARD_SIZE - 1] == opponent_side:
+                opponent_side_edge_count += 1
+
+        return min(max((len(side_liberty) - len(opponent_liberty)), -4), 4) + (
+                -4 * self.calculate_euler_number(game_state, side)) + (5 * (side_count - opponent_count)) + (
+                       side_edge_count - opponent_side_edge_count)
 
     def move(self, game_state, side, move):
         new_game_state = copy.deepcopy(game_state)
@@ -99,7 +140,7 @@ class MyPlayer:
                                 elif new_game_state[new_new_i][new_new_j] == UNOCCUPIED:
                                     opponent_group_should_be_deleted = False
                                     break
-                                elif new_game_state[new_new_i][new_new_j] == opponent_side and\
+                                elif new_game_state[new_new_i][new_new_j] == opponent_side and \
                                         (new_new_i, new_new_j) not in visited:
                                     stack.append((new_new_i, new_new_j))
 
@@ -107,6 +148,68 @@ class MyPlayer:
                         for stone in visited:
                             new_game_state[stone[0]][stone[1]] = UNOCCUPIED
         return new_game_state
+
+    def calculate_euler_number(self, game_state, side):
+        opponent_side = self.get_opponent_side(side)
+        new_game_state = np.zeros((BOARD_SIZE + 2, BOARD_SIZE + 2), dtype=int)
+        # First copy the original game_state
+        for i in range(BOARD_SIZE):
+            for j in range(BOARD_SIZE):
+                new_game_state[i + 1][j + 1] = game_state[i][j]
+
+        q1_side = 0
+        q2_side = 0
+        q3_side = 0
+        q1_opponent_side = 0
+        q2_opponent_side = 0
+        q3_opponent_side = 0
+
+        for i in range(BOARD_SIZE):
+            for j in range(BOARD_SIZE):
+                new_game_sub_state = new_game_state[i: i + 2, j: j + 2]
+                q1_side += self.countQ1s(new_game_sub_state, side)
+                q2_side += self.countQ2s(new_game_sub_state, side)
+                q3_side += self.countQ3s(new_game_sub_state, side)
+                q1_opponent_side += self.countQ1s(new_game_sub_state, opponent_side)
+                q2_opponent_side += self.countQ2s(new_game_sub_state, opponent_side)
+                q3_opponent_side += self.countQ3s(new_game_sub_state, opponent_side)
+
+        return (q1_side - q3_side + 2 * q2_side - (q1_opponent_side - q3_opponent_side + 2 * q2_opponent_side)) / 4
+
+    def countQ1s(self, game_sub_state, side):
+        if ((game_sub_state[0][0] == side and game_sub_state[0][1] != side
+             and game_sub_state[1][0] != side and game_sub_state[1][1] != side)
+                or (game_sub_state[0][0] != side and game_sub_state[0][1] == side
+                    and game_sub_state[1][0] != side and game_sub_state[1][1] != side)
+                or (game_sub_state[0][0] != side and game_sub_state[0][1] != side
+                    and game_sub_state[1][0] == side and game_sub_state[1][1] != side)
+                or (game_sub_state[0][0] != side and game_sub_state[0][1] != side
+                    and game_sub_state[1][0] != side and game_sub_state[1][1] == side)):
+            return 1
+        else:
+            return 0
+
+    def countQ2s(self, game_sub_state, side):
+        if ((game_sub_state[0][0] == side and game_sub_state[0][1] != side
+             and game_sub_state[1][0] != side and game_sub_state[1][1] == side)
+                or (game_sub_state[0][0] != side and game_sub_state[0][1] == side
+                    and game_sub_state[1][0] == side and game_sub_state[1][1] != side)):
+            return 1
+        else:
+            return 0
+
+    def countQ3s(self, game_sub_state, side):
+        if ((game_sub_state[0][0] == side and game_sub_state[0][1] == side
+             and game_sub_state[1][0] == side and game_sub_state[1][1] != side)
+                or (game_sub_state[0][0] != side and game_sub_state[0][1] == side
+                    and game_sub_state[1][0] == side and game_sub_state[1][1] == side)
+                or (game_sub_state[0][0] == side and game_sub_state[0][1] != side
+                    and game_sub_state[1][0] == side and game_sub_state[1][1] == side)
+                or (game_sub_state[0][0] != side and game_sub_state[0][1] == side
+                    and game_sub_state[1][0] == side and game_sub_state[1][1] == side)):
+            return 1
+        else:
+            return 0
 
     def find_valid_moves(self, game_state, side):
         valid_moves = []
@@ -184,7 +287,7 @@ class MyPlayer:
             return None
         for i in range(BOARD_SIZE):
             for j in range(BOARD_SIZE):
-                if self.current_game_state[i][j] != self.previous_game_state[i][j]\
+                if self.current_game_state[i][j] != self.previous_game_state[i][j] \
                         and self.current_game_state[i][j] != UNOCCUPIED:
                     # Just a double check that the difference is a stone that belongs to the opponent!
                     # assert self.current_game_state[i][j] == self.opponent_side, "Houston we've got a problem!"
@@ -208,7 +311,7 @@ class MyPlayer:
         return game_state
 
 
-def read_input(input_file_name = INPUT_FILE_NAME):
+def read_input(input_file_name=INPUT_FILE_NAME):
     with open(input_file_name) as input_file:
         input_file_lines = [input_file_line.strip() for input_file_line in input_file.readlines()]
         # side = 1 => we are black, side = 2 => we are white
@@ -226,10 +329,13 @@ def read_input(input_file_name = INPUT_FILE_NAME):
 
 def write_output(next_move):
     with open(OUTPUT_FILE_NAME, 'w') as output_file:
-        output_file.write(f'{next_move[0]},{next_move[1]}')
+        if next_move is None:
+            output_file.write('PASS')
+        else:
+            output_file.write(f'{next_move[0]},{next_move[1]}')
 
 
 if __name__ == '__main__':
     side, previous_game_state, current_game_state = read_input()
     my_player = MyPlayer(side, previous_game_state, current_game_state)
-    my_player.alpha_beta_search(2, 10)
+    my_player.alpha_beta_search(4, 15)
