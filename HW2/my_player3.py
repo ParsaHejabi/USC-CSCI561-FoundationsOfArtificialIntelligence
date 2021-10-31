@@ -4,6 +4,7 @@ import numpy as np
 
 INPUT_FILE_NAME = 'input.txt'
 OUTPUT_FILE_NAME = 'output.txt'
+STEP_NUMBER_FILE_NAME = 'step_num.txt'
 BOARD_SIZE = 5
 UNOCCUPIED = 0
 BLACK = 1
@@ -21,21 +22,26 @@ class MyPlayer:
         self.previous_game_state = previous_game_state
         self.current_game_state = current_game_state
 
-    def alpha_beta_search(self, search_depth, branching_factor):
+    def alpha_beta_search(self, search_depth, branching_factor, step_number):
         max_move, max_move_value = self.max_value(self.current_game_state, self.side, search_depth, 0, branching_factor,
-                                                  -np.inf, np.inf, None)
+                                                  -np.inf, np.inf, None, step_number, False)
         # DEBUG
         # print(max_move, max_move_value)
         write_output(max_move)
 
-    def max_value(self, game_state, side, search_depth, current_depth, branching_factor, alpha, beta, last_move):
-        if search_depth == current_depth:
+    def max_value(self, game_state, side, search_depth, current_depth, branching_factor, alpha, beta, last_move,
+                  step_number, is_second_pass):
+        if search_depth == current_depth or step_number + current_depth == 24:
             return self.evaluate_game_state(game_state, side)
+        if is_second_pass:
+            return self.evaluate_game_state(game_state, side)
+        is_second_pass = False
         max_move_value = -np.inf
         max_move = None
         valid_moves = self.find_valid_moves(game_state, side)
-        if last_move != (-1, -1):
-            valid_moves.append((-1, -1))
+        valid_moves.append((-1, -1))
+        if last_move == (-1, -1):
+            is_second_pass = True
         for valid_move in valid_moves[:branching_factor]:
             # Create new game state
             opponent_side = self.get_opponent_side(side)
@@ -44,7 +50,7 @@ class MyPlayer:
             else:
                 new_game_state = self.move(game_state, side, valid_move)
             min_move_value = self.min_value(new_game_state, opponent_side, search_depth, current_depth + 1,
-                                            branching_factor, alpha, beta, valid_move)
+                                            branching_factor, alpha, beta, valid_move, step_number, is_second_pass)
             if max_move_value < min_move_value:
                 max_move_value = min_move_value
                 max_move = valid_move
@@ -59,13 +65,18 @@ class MyPlayer:
         else:
             return max_move_value
 
-    def min_value(self, game_state, side, search_depth, current_depth, branching_factor, alpha, beta, last_move):
+    def min_value(self, game_state, side, search_depth, current_depth, branching_factor, alpha, beta, last_move,
+                  step_number, is_second_pass):
         if search_depth == current_depth:
             return self.evaluate_game_state(game_state, side)
+        if step_number + current_depth == 24 or is_second_pass:
+            return self.evaluate_game_state(game_state, self.side)
+        is_second_pass = False
         min_move_value = np.inf
         valid_moves = self.find_valid_moves(game_state, side)
-        if last_move != (-1, -1):
-            valid_moves.append((-1, -1))
+        valid_moves.append((-1, -1))
+        if last_move == (-1, -1):
+            is_second_pass = True
         for valid_move in valid_moves[:branching_factor]:
             # Create new game state
             opponent_side = self.get_opponent_side(side)
@@ -74,7 +85,7 @@ class MyPlayer:
             else:
                 new_game_state = self.move(game_state, side, valid_move)
             max_move_value = self.max_value(new_game_state, opponent_side, search_depth, current_depth + 1,
-                                            branching_factor, alpha, beta, valid_move)
+                                            branching_factor, alpha, beta, valid_move, step_number, is_second_pass)
             if max_move_value < min_move_value:
                 min_move_value = max_move_value
             if min_move_value <= alpha:
@@ -379,7 +390,38 @@ def write_output(next_move):
             output_file.write(f'{next_move[0]},{next_move[1]}')
 
 
+def calculate_step_number(previous_game_state, current_game_state):
+    previous_game_state_init = True
+    current_game_state_init = True
+    for i in range(BOARD_SIZE - 1):
+        for j in range(BOARD_SIZE - 1):
+            if previous_game_state[i][j] != UNOCCUPIED:
+                previous_game_state_init = False
+                current_game_state_init = False
+                break
+            elif current_game_state[i][j] != UNOCCUPIED:
+                current_game_state_init = False
+
+    if previous_game_state_init and current_game_state_init:
+        step_number = 0
+    elif previous_game_state_init and not current_game_state_init:
+        step_number = 1
+    else:
+        with open(STEP_NUMBER_FILE_NAME) as step_number_file:
+            step_number = int(step_number_file.readline())
+            step_number += 2
+
+    with open(STEP_NUMBER_FILE_NAME, 'w') as step_number_file:
+        step_number_file.write(f'{step_number}')
+
+    return step_number
+
+
 if __name__ == '__main__':
-    side, previous_game_state, current_game_state = read_input('./weird_tests/2.txt')
+    side, previous_game_state, current_game_state = read_input()
+    step_number = calculate_step_number(previous_game_state, current_game_state)
+    # DEBUG
+    # step_number = 22
+    # print(step_number)
     my_player = MyPlayer(side, previous_game_state, current_game_state)
-    my_player.alpha_beta_search(4, 20)
+    my_player.alpha_beta_search(4, 20, step_number)
