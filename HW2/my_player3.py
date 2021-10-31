@@ -8,6 +8,7 @@ BOARD_SIZE = 5
 UNOCCUPIED = 0
 BLACK = 1
 WHITE = 2
+KOMI = 3
 # Right, Bottom, Left, Up
 X_CHANGES = [1, 0, -1, 0]
 Y_CHANGES = [0, 1, 0, -1]
@@ -22,23 +23,28 @@ class MyPlayer:
 
     def alpha_beta_search(self, search_depth, branching_factor):
         max_move, max_move_value = self.max_value(self.current_game_state, self.side, search_depth, 0, branching_factor,
-                                                  -np.inf, np.inf)
+                                                  -np.inf, np.inf, None)
         # DEBUG
         # print(max_move, max_move_value)
         write_output(max_move)
 
-    def max_value(self, game_state, side, search_depth, current_depth, branching_factor, alpha, beta):
+    def max_value(self, game_state, side, search_depth, current_depth, branching_factor, alpha, beta, last_move):
         if search_depth == current_depth:
             return self.evaluate_game_state(game_state, side)
         max_move_value = -np.inf
         max_move = None
         valid_moves = self.find_valid_moves(game_state, side)
+        if last_move != (-1, -1):
+            valid_moves.append((-1, -1))
         for valid_move in valid_moves[:branching_factor]:
             # Create new game state
             opponent_side = self.get_opponent_side(side)
-            new_game_state = self.move(game_state, side, valid_move)
+            if valid_move == (-1, -1):
+                new_game_state = copy.deepcopy(game_state)
+            else:
+                new_game_state = self.move(game_state, side, valid_move)
             min_move_value = self.min_value(new_game_state, opponent_side, search_depth, current_depth + 1,
-                                            branching_factor, alpha, beta)
+                                            branching_factor, alpha, beta, valid_move)
             if max_move_value < min_move_value:
                 max_move_value = min_move_value
                 max_move = valid_move
@@ -53,17 +59,22 @@ class MyPlayer:
         else:
             return max_move_value
 
-    def min_value(self, game_state, side, search_depth, current_depth, branching_factor, alpha, beta):
+    def min_value(self, game_state, side, search_depth, current_depth, branching_factor, alpha, beta, last_move):
         if search_depth == current_depth:
             return self.evaluate_game_state(game_state, side)
         min_move_value = np.inf
         valid_moves = self.find_valid_moves(game_state, side)
+        if last_move != (-1, -1):
+            valid_moves.append((-1, -1))
         for valid_move in valid_moves[:branching_factor]:
             # Create new game state
             opponent_side = self.get_opponent_side(side)
-            new_game_state = self.move(game_state, side, valid_move)
+            if valid_move == (-1, -1):
+                new_game_state = copy.deepcopy(game_state)
+            else:
+                new_game_state = self.move(game_state, side, valid_move)
             max_move_value = self.max_value(new_game_state, opponent_side, search_depth, current_depth + 1,
-                                            branching_factor, alpha, beta)
+                                            branching_factor, alpha, beta, valid_move)
             if max_move_value < min_move_value:
                 min_move_value = max_move_value
             if min_move_value <= alpha:
@@ -108,9 +119,12 @@ class MyPlayer:
             if game_state[j][0] == opponent_side or game_state[j][BOARD_SIZE - 1] == opponent_side:
                 opponent_side_edge_count += 1
 
-        return min(max((len(side_liberty) - len(opponent_liberty)), -4), 4) + (
-                -4 * self.calculate_euler_number(game_state, side)) + (5 * (side_count - opponent_count)) + (
-                       side_edge_count - opponent_side_edge_count)
+        score = min(max((len(side_liberty) - len(opponent_liberty)), -4), 4) + (
+                -4 * self.calculate_euler_number(game_state, side)) + (
+                            5 * (side_count - opponent_count)) - side_edge_count
+        if self.side == WHITE:
+            score += 2 * KOMI
+        return score
 
     def move(self, game_state, side, move):
         new_game_state = copy.deepcopy(game_state)
@@ -167,16 +181,16 @@ class MyPlayer:
         for i in range(BOARD_SIZE):
             for j in range(BOARD_SIZE):
                 new_game_sub_state = new_game_state[i: i + 2, j: j + 2]
-                q1_side += self.countQ1s(new_game_sub_state, side)
-                q2_side += self.countQ2s(new_game_sub_state, side)
-                q3_side += self.countQ3s(new_game_sub_state, side)
-                q1_opponent_side += self.countQ1s(new_game_sub_state, opponent_side)
-                q2_opponent_side += self.countQ2s(new_game_sub_state, opponent_side)
-                q3_opponent_side += self.countQ3s(new_game_sub_state, opponent_side)
+                q1_side += self.count_q1(new_game_sub_state, side)
+                q2_side += self.count_q2(new_game_sub_state, side)
+                q3_side += self.count_q3(new_game_sub_state, side)
+                q1_opponent_side += self.count_q1(new_game_sub_state, opponent_side)
+                q2_opponent_side += self.count_q2(new_game_sub_state, opponent_side)
+                q3_opponent_side += self.count_q3(new_game_sub_state, opponent_side)
 
         return (q1_side - q3_side + 2 * q2_side - (q1_opponent_side - q3_opponent_side + 2 * q2_opponent_side)) / 4
 
-    def countQ1s(self, game_sub_state, side):
+    def count_q1(self, game_sub_state, side):
         if ((game_sub_state[0][0] == side and game_sub_state[0][1] != side
              and game_sub_state[1][0] != side and game_sub_state[1][1] != side)
                 or (game_sub_state[0][0] != side and game_sub_state[0][1] == side
@@ -189,7 +203,7 @@ class MyPlayer:
         else:
             return 0
 
-    def countQ2s(self, game_sub_state, side):
+    def count_q2(self, game_sub_state, side):
         if ((game_sub_state[0][0] == side and game_sub_state[0][1] != side
              and game_sub_state[1][0] != side and game_sub_state[1][1] == side)
                 or (game_sub_state[0][0] != side and game_sub_state[0][1] == side
@@ -198,7 +212,7 @@ class MyPlayer:
         else:
             return 0
 
-    def countQ3s(self, game_sub_state, side):
+    def count_q3(self, game_sub_state, side):
         if ((game_sub_state[0][0] == side and game_sub_state[0][1] == side
              and game_sub_state[1][0] == side and game_sub_state[1][1] != side)
                 or (game_sub_state[0][0] != side and game_sub_state[0][1] == side
@@ -212,14 +226,17 @@ class MyPlayer:
             return 0
 
     def find_valid_moves(self, game_state, side):
-        valid_moves = []
+        valid_moves = {'3side': [], '1capturing': [], '2regular': []}
         for i in range(BOARD_SIZE):
             for j in range(BOARD_SIZE):
                 if game_state[i][j] == UNOCCUPIED:
                     if self.check_for_liberty(game_state, i, j, side):
                         # Check for 'KO' rule before validating this move!
                         if not self.check_for_ko(i, j):
-                            valid_moves.append((i, j))
+                            if i == 0 or j == 0 or i == BOARD_SIZE - 1 or j == BOARD_SIZE - 1:
+                                valid_moves.get('3side').append((i, j))
+                            else:
+                                valid_moves.get('2regular').append((i, j))
                     # Check if we are capturing some stones by doing this move
                     else:
                         for index in range(len(X_CHANGES)):
@@ -236,13 +253,23 @@ class MyPlayer:
                                                                   opponent_side):
                                         # Check for 'KO' rule before validating this move!
                                         if not self.check_for_ko(i, j):
-                                            valid_moves.append((i, j))
+                                            valid_moves.get('1capturing').append((i, j))
                                         break
 
                         # If the for loop did not break at all, then all of our neighbors have liberty and we cannot
                         # do this move
 
-        return valid_moves
+        valid_moves_list = []
+        for valid_move in valid_moves.get('1capturing'):
+            valid_moves_list.append(valid_move)
+        for valid_move in valid_moves.get('2regular'):
+            valid_moves_list.append(valid_move)
+        for valid_move in valid_moves.get('3side'):
+            valid_moves_list.append(valid_move)
+
+        # DEBUG
+        # print(valid_moves_list)
+        return valid_moves_list
 
     def check_for_liberty(self, game_state, i, j, side):
         stack = [(i, j)]
@@ -329,7 +356,7 @@ def read_input(input_file_name=INPUT_FILE_NAME):
 
 def write_output(next_move):
     with open(OUTPUT_FILE_NAME, 'w') as output_file:
-        if next_move is None:
+        if next_move is None or next_move == (-1, -1):
             output_file.write('PASS')
         else:
             output_file.write(f'{next_move[0]},{next_move[1]}')
@@ -338,4 +365,4 @@ def write_output(next_move):
 if __name__ == '__main__':
     side, previous_game_state, current_game_state = read_input()
     my_player = MyPlayer(side, previous_game_state, current_game_state)
-    my_player.alpha_beta_search(4, 15)
+    my_player.alpha_beta_search(6, 20)
