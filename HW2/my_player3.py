@@ -9,7 +9,7 @@ BOARD_SIZE = 5
 UNOCCUPIED = 0
 BLACK = 1
 WHITE = 2
-KOMI = 3
+KOMI = 2.5
 # Right, Bottom, Left, Up
 X_CHANGES = [1, 0, -1, 0]
 Y_CHANGES = [0, 1, 0, -1]
@@ -132,15 +132,16 @@ class MyPlayer:
             if game_state[j][0] == opponent_side or game_state[j][BOARD_SIZE - 1] == opponent_side:
                 opponent_side_edge_count += 1
 
-        center_unoccupied_count = 9
-        for i in range(1, BOARD_SIZE - 1):
-            for j in range(1, BOARD_SIZE - 1):
-                if game_state[i][j] != UNOCCUPIED:
-                    center_unoccupied_count -= 1
+        valid_moves = self.find_valid_moves(game_state, side)
+        center_valid_moves = []
+        for valid_move in valid_moves:
+            if 1 <= valid_move[0] <= 3:
+                if 1 <= valid_move[1] <= 3:
+                    center_valid_moves.append(valid_move)
 
-        score = min(max((len(side_liberty) - len(opponent_liberty)), -4), 4) + (
+        score = min(max((len(side_liberty) - len(opponent_liberty)), -8), 8) + (
                 -4 * self.calculate_euler_number(game_state, side)) + (
-                        5 * (side_count - opponent_count)) - (9 * side_edge_count * (center_unoccupied_count / 9))
+                        5 * (side_count - opponent_count)) - (9 * side_edge_count * (len(center_valid_moves) / 9))
         if self.side == WHITE:
             score += KOMI
 
