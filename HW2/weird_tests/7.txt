@@ -1,0 +1,18 @@
+
+White 1,0
+----------
+
+O O O O O
+X X X X
+X   X O
+  X
+----------
+
+Black 3,4
+----------
+
+O O O O O
+X X X X
+X   X O X
+  X
+----------
