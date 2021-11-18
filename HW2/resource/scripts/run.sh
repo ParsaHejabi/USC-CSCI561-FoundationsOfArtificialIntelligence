@@ -1,0 +1,1 @@
+python3 $ASNLIB/public/manual_play/go_play.py -n=5 -p1=manual -p2=random -t=1
