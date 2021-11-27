@@ -129,8 +129,8 @@ if __name__ == '__main__':
 
     parameters = xavier_initialization()
 
-    epochs = 50
-    learning_rate = 0.01
+    epochs = 500
+    learning_rate = 1
     for i in range(epochs):
         A1, Z1 = forward_prop(train_images, parameters['W1'], parameters['B1'])
         A2, Z2 = forward_prop(A1, parameters['W2'], parameters['B2'])
