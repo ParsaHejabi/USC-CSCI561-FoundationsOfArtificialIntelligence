@@ -1,6 +1,7 @@
 import sys
 import numpy as np
 from matplotlib import pyplot as plt
+import random
 import csv
 
 TEST_LABELS_ADDRESS = 'H:\\My Drive\\UniversityOfSouthernCalifornia\\Term1\\CSCI561' \
@@ -34,52 +35,56 @@ def load_data(train_images_address, train_labels_address, test_images_address, l
         return train_images, train_labels, test_images
 
 
+def test_train_test_split():
+    random_number = random.randint(0, train_images.shape[1])
+    first_image = np.array(train_images[random_number], dtype='float32')
+    pixels = first_image.reshape((28, 28))
+    plt.imshow(pixels, cmap='gray')
+    plt.show()
+    print(train_labels[random_number])
+
+    random_number = random.randint(0, test_images.shape[1])
+    first_image = np.array(test_images[random_number], dtype='float32')
+    pixels = first_image.reshape((28, 28))
+    plt.imshow(pixels, cmap='gray')
+    plt.show()
+    print(test_labels[random_number])
+
+
 def xavier_initialization():
-    parameters = {}
-    limit = np.sqrt(6 / float(train_images.shape[1]))
-    parameters['W1'] = np.random.uniform(-limit, limit, size=(128, train_images.shape[0]))
-    parameters['B1'] = np.zeros((128, 1))
-    limit = np.sqrt(6 / float(128))
-    parameters['W2'] = np.random.uniform(-limit, limit, size=(64, 128))
-    parameters['B2'] = np.zeros((64, 1))
-    limit = np.sqrt(6 / float(64))
-    parameters['W3'] = np.random.uniform(-limit, limit, size=(10, 64))
-    parameters['B3'] = np.zeros((10, 1))
-    return parameters
-
-def relu(Z):
-    return np.maximum(Z, 0), Z
+    params = {'W1': np.random.randn(784, 128) / np.sqrt(784), 'B1': np.zeros((1, 128)),
+              'W2': np.random.randn(128, 64) / np.sqrt(64), 'B2': np.zeros((1, 64)),
+              'W3': np.random.randn(64, 10) / np.sqrt(64), 'B3': np.zeros((1, 10))}
+    return params
 
 
-def relu_back_prop(Z):
-    dZ = np.array(Z, copy=True)
-    dZ[Z <= 0] = 0
+def sigmoid(Z):
+    return 1 / (1 + np.exp(-Z))
 
-    return dZ
+
+def sigmoid_back_prop(Z):
+    sig = sigmoid(Z)
+    return sig * (1 - sig)
 
 
 def softmax(x):
-    return np.exp(x - x.max()) / np.sum(np.exp(x - x.max())), x
-
-
-def softmax_back_prop(x):
-    return (np.exp(x - x.max()) / np.sum(np.exp(x - x.max()))) * (
-                1 - (np.exp(x - x.max()) / np.sum(np.exp(x - x.max()))))
+    return np.exp(x - x.max()) / np.sum(np.exp(x - x.max()), axis=1, keepdims=True)
 
 
 def forward_prop(A_1, W, B):
-    A, Z = relu(W.dot(A_1) + B)
+    Z = A_1.dot(W) + B
+    A = sigmoid(Z)
     return A, Z
 
 
 def forward_prop_softmax(A_1, W, B):
-    A, Z = softmax(W.dot(A_1) + B)
+    Z = A_1.dot(W) + B
+    A = softmax(Z)
     return A, Z
 
 
 def cross_entropy_loss(y, y_hat):
-    assert y.shape == y_hat.shape
-    return np.squeeze((1. / y.shape[1]) * np.sum((- np.dot(y, np.log(y_hat).T))))
+    return -np.mean(y * np.log(y_hat + 1e-8))
 
 
 if __name__ == '__main__':
@@ -93,102 +98,104 @@ if __name__ == '__main__':
         train_images, train_labels, test_images = load_data(cmd_args[1], cmd_args[2], cmd_args[3],
                                                             local=local)
 
-    train_size = 0.85
-
-    full_train = np.append(train_images, train_labels, axis=1)
-    full_test = np.append(test_images, test_labels, axis=1)
-
-    full_dataset = np.append(full_train, full_test, axis=0)
-    np.random.shuffle(full_dataset)
-
-    train_full = full_dataset[: round((train_images.shape[0] + test_images.shape[0]) * train_size)]
-    test_full = full_dataset[round((train_images.shape[0] + test_images.shape[0]) * train_size):]
-
-    train_images = train_full[:, : train_images.shape[1]]
-    train_labels = train_full[:, train_images.shape[1]:]
-
-    test_images = test_full[:, : test_images.shape[1]]
-    test_labels = test_full[:, test_images.shape[1]:]
-
-    assert train_images.shape[0] == round(train_size * 70000)
-    assert train_images.shape[1] == 784
-    assert train_labels.shape[0] == round(train_size * 70000)
-    assert train_labels.shape[1] == 10
-
-    assert test_images.shape[0] == 70000 - round(train_size * 70000)
-    assert test_images.shape[1] == 784
-    assert test_labels.shape[0] == 70000 - round(train_size * 70000)
-    assert test_labels.shape[1] == 10
-
-    train_images = train_images.T
-    train_labels = train_labels.T
-    test_images = test_images.T
-    test_labels = test_labels.T
-
-    # random_number = random.randint(0, train_images.shape[1])
-    # first_image = np.array(train_images[random_number], dtype='float32')
-    # pixels = first_image.reshape((28, 28))
-    # plt.imshow(pixels, cmap='gray')
-    # plt.show()
-    # print(train_labels[random_number])
+    # train_size = 0.85
     #
-    # random_number = random.randint(0, test_images.shape[1])
-    # first_image = np.array(test_images[random_number], dtype='float32')
-    # pixels = first_image.reshape((28, 28))
-    # plt.imshow(pixels, cmap='gray')
-    # plt.show()
-    # print(test_labels[random_number])
+    # full_train = np.append(train_images, train_labels, axis=1)
+    # full_test = np.append(test_images, test_labels, axis=1)
+    #
+    # full_dataset = np.append(full_train, full_test, axis=0)
+    # np.random.shuffle(full_dataset)
+    #
+    # train_full = full_dataset[: round((train_images.shape[0] + test_images.shape[0]) * train_size)]
+    # test_full = full_dataset[round((train_images.shape[0] + test_images.shape[0]) * train_size):]
+    #
+    # train_images = train_full[:, : train_images.shape[1]]
+    # train_labels = train_full[:, train_images.shape[1]:]
+    #
+    # test_images = test_full[:, : test_images.shape[1]]
+    # test_labels = test_full[:, test_images.shape[1]:]
+    #
+    # assert train_images.shape[0] == round(train_size * 70000)
+    # assert train_images.shape[1] == 784
+    # assert train_labels.shape[0] == round(train_size * 70000)
+    # assert train_labels.shape[1] == 10
+    #
+    # assert test_images.shape[0] == 70000 - round(train_size * 70000)
+    # assert test_images.shape[1] == 784
+    # assert test_labels.shape[0] == 70000 - round(train_size * 70000)
+    # assert test_labels.shape[1] == 10
+
+    # test_train_test_split()
 
     parameters = xavier_initialization()
 
-    epochs = 3000
-    learning_rate = 0.0075
+    epochs = 50
+    learning_rate = 0.01
     for i in range(epochs):
         A1, Z1 = forward_prop(train_images, parameters['W1'], parameters['B1'])
         A2, Z2 = forward_prop(A1, parameters['W2'], parameters['B2'])
-
         A3, Z3 = forward_prop_softmax(A2, parameters['W3'], parameters['B3'])
 
+        # print(A1.shape)
+        # print(A2.shape)
+        # print(A3.shape)
+
         loss = cross_entropy_loss(train_labels, A3)
+        # -----------------------------------------------
 
         dZ3 = (A3 - train_labels)
-        dW3 = np.dot(dZ3, A2.T)
-        dB3 = np.sum(dZ3, axis=1).reshape(10, 1)
+        dW3 = np.matmul(dZ3.T, A2) / train_images.shape[0]
+        dW3 = dW3.T
+        dB3 = np.sum(dZ3, axis=0, keepdims=True) / train_images.shape[0]
 
-        dZ2 = np.dot(dW3.T, dZ3) * relu_back_prop(Z2)
-        dW2 = np.dot(dZ2, A1.T)
-        dB2 = np.sum(dZ2, axis=1).reshape(64, 1)
+        # print(dZ3.shape)
+        # print(dW3.shape)
+        # print(dB3.shape)
 
-        dZ1 = np.dot(dW2.T, dZ2) * relu_back_prop(Z1)
-        dW1 = np.dot(dZ1, train_images.T)
-        dB1 = np.sum(dZ1, axis=1).reshape(128, 1)
+        dZ2 = np.matmul(dW3, dZ3.T).T * sigmoid_back_prop(Z2)
+        dW2 = np.matmul(dZ2.T, A1) / train_images.shape[0]
+        dW2 = dW2.T
+        dB2 = np.sum(dZ2, axis=0, keepdims=True) / train_images.shape[0]
 
-        parameters['W1'] -= learning_rate * dW1
-        parameters['B1'] -= learning_rate * dB1
-        parameters['W2'] -= learning_rate * dW2
-        parameters['B2'] -= learning_rate * dB2
-        parameters['W3'] -= learning_rate * dW3
-        parameters['B3'] -= learning_rate * dB3
+        # print(dZ2.shape)
+        # print(dW2.shape)
+        # print(dB2.shape)
+
+        dZ1 = np.matmul(dW2, dZ2.T).T * sigmoid_back_prop(Z1)
+        dW1 = np.matmul(dZ1.T, train_images) / train_images.shape[0]
+        dW1 = dW1.T
+        dB1 = np.sum(dZ1, axis=0, keepdims=True) / train_images.shape[0]
+
+        # print(dZ1.shape)
+        # print(dW1.shape)
+        # print(dB1.shape)
+
+        parameters['W1'] = parameters['W1'] - learning_rate * dW1
+        parameters['B1'] = parameters['B1'] - learning_rate * dB1
+        parameters['W2'] = parameters['W2'] - learning_rate * dW2
+        parameters['B2'] = parameters['B2'] - learning_rate * dB2
+        parameters['W3'] = parameters['W3'] - learning_rate * dW3
+        parameters['B3'] = parameters['B3'] - learning_rate * dB3
+        #
+        # print(f'DW3: {dW3}')
+        # print(f'DW2: {dW2}')
+        # print(f'DW1: {dW1}')
 
         if i % 50 == 0:
             print(f'Current loss at epoch {i}th: {loss}')
 
     A1, Z1 = forward_prop(test_images, parameters['W1'], parameters['B1'])
     A2, Z2 = forward_prop(A1, parameters['W2'], parameters['B2'])
-
     A3, Z3 = forward_prop_softmax(A2, parameters['W3'], parameters['B3'])
 
-    predictions = np.argmax(A3, axis=0)
+    predictions = np.argmax(A3, axis=1)
+    print(f'Accuracy: {np.mean(predictions == np.argmax(test_labels, axis=1))}')
 
-    match = 0
     mismatch = np.array([])
     with open('test_predictions_2.csv', 'w') as test_prediction_file:
         writer = csv.writer(test_prediction_file)
-        for i in range(predictions.shape[0]):
-            writer.writerow(predictions[i])
-            if predictions[i] == test_images[i]:
-                match += 1
-            else:
-                mismatch = np.append(mismatch, (i, predictions[i], test_images[i]))
+        writer.writerow(predictions)
 
-    print(f'Accuracy: {match / test_images.shape[0]}')
+    # for i in range(predictions.shape[0]):
+    #     if predictions[i] != test_images[i]:
+    #         mismatch = np.append(mismatch, (i, predictions[i], test_images[i]))
